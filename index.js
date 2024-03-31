@@ -9,12 +9,20 @@ axios.defaults.headers.post['Content-Type'] = 'application/json';
 
 let co2Monitor = new Co2Monitor();
 
-co2Monitor.on('connected', (device) => {
-    co2Monitor.startTransfer();
+co2Monitor.on('connected', () => {
+    console.log('Co2Monitor connected');
+});
+
+co2Monitor.on('disconnected', () => {
+    console.log('Co2Monitor disconnected');
 });
 
 co2Monitor.on('error', (error) => {
     console.error(error);
+
+    co2Monitor.disconnect(() => {
+        process.exit(1);
+    });
 })
 
 co2Monitor.on('data', (json) => {
@@ -26,7 +34,7 @@ co2Monitor.on('data', (json) => {
         return {
             name: `co2-mini.${key}.${process.env.MACKEREL_METRIC_NAME_SUFFIX}`,
             time: now,
-            value: ( typeof(data[key]) === 'number' ? data[key] : parseFloat(data[key]) ),
+            value: ( typeof(data[key].value) === 'number' ? data[key].value : parseFloat(data[key].value) ),
         };
     });
     axios.post(`/api/v0/services/${process.env.MACKEREL_SERVICE_NAME}/tsdb`, metricValues)
@@ -53,4 +61,15 @@ co2Monitor.on('data', (json) => {
     });
 })
 
-co2Monitor.connect();
+co2Monitor.connect((error) => {
+    if (error) {
+        console.error(error);
+        process.exit(1);
+    }
+
+    co2Monitor.startTransfer((error) => {
+        if (error) {
+            console.error(error);
+        }
+    });
+});
